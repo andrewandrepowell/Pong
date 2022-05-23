@@ -1,4 +1,6 @@
-﻿using Microsoft.Xna.Framework;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 
@@ -6,11 +8,11 @@ namespace Pong
 {
     public class Game1 : Game
     {
+        private const int _PADDLE_SPEED = 400;
+        private const int _BALL_SPEED = 600;
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
-        private Texture2D _ballTexture;
-        private Vector2 _ballPosition;
-        private float _ballSpeed;
+        private ICollection<IGameObject> _gameObjects;
 
         public Game1()
         {
@@ -22,9 +24,7 @@ namespace Pong
         protected override void Initialize()
         {
             // TODO: Add your initialization logic here
-            _ballPosition = new Vector2(_graphics.PreferredBackBufferWidth / 2, _graphics.PreferredBackBufferHeight / 2);
-            _ballSpeed = 100f;
-
+            _gameObjects = new List<IGameObject>();
             base.Initialize();
         }
 
@@ -33,7 +33,43 @@ namespace Pong
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
             // TODO: use this.Content to load your game content here
-            _ballTexture = Content.Load<Texture2D>("ball");
+            Rectangle roomBounds = new Rectangle(
+                x: 0,
+                y: 0,
+                width: _graphics.PreferredBackBufferWidth,
+                height: _graphics.PreferredBackBufferHeight);
+            Ball ball = new Ball(
+                content: Content,
+                position: new Point(x: 0, y: 0),
+                roomBounds: roomBounds,
+                speed: _BALL_SPEED);
+            HumanPaddle humanPaddle = new HumanPaddle(
+                content: Content,
+                position: new Point(x: 0, y: 0),
+                roomBounds: roomBounds,
+                speed: _PADDLE_SPEED);
+            AIPaddle aiPaddle = new AIPaddle(
+                content: Content,
+                position: new Point(x: 0, y: 0),
+                roomBounds: roomBounds,
+                defendingY: 0,
+                speed: _PADDLE_SPEED);
+
+            _gameObjects.Add(ball);
+            _gameObjects.Add(humanPaddle);
+            _gameObjects.Add(aiPaddle);
+
+            ball.CollidableGameObjects = new IGameObject[] { humanPaddle, aiPaddle };
+            ball.Position = new Point(
+                x: _graphics.PreferredBackBufferWidth / 2 - ball.Mask.Bounds.Width / 2, 
+                y: _graphics.PreferredBackBufferHeight / 2 - ball.Mask.Bounds.Height / 2);
+            humanPaddle.Position = new Point(
+                x: _graphics.PreferredBackBufferWidth / 2 - aiPaddle.Mask.Bounds.Width / 2,
+                y: _graphics.PreferredBackBufferHeight - aiPaddle.Mask.Bounds.Height);
+            aiPaddle.Position = new Point(
+                x: _graphics.PreferredBackBufferWidth / 2 - aiPaddle.Mask.Bounds.Width / 2,
+                y: 0);
+            aiPaddle.Ball = ball;
         }
 
         protected override void Update(GameTime gameTime)
@@ -41,32 +77,11 @@ namespace Pong
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
-            // TODO: Add your update logic here
-            KeyboardState kstate = Keyboard.GetState();
-
-            // Implement movement based on keyboard input.
-            if (kstate.IsKeyDown(Keys.Up))
-                _ballPosition.Y -= _ballSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            if (kstate.IsKeyDown(Keys.Down))
-                _ballPosition.Y += _ballSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            if (kstate.IsKeyDown(Keys.Left))
-                _ballPosition.X -= _ballSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            if (kstate.IsKeyDown(Keys.Right))
-                _ballPosition.X += _ballSpeed * (float)gameTime.ElapsedGameTime.TotalSeconds;
-
-            // Implement bounds.
-            if (_ballPosition.X > _graphics.PreferredBackBufferWidth - _ballTexture.Width / 2)
-                _ballPosition.X = _graphics.PreferredBackBufferWidth - _ballTexture.Width / 2;
-            else if (_ballPosition.X < _ballTexture.Width / 2)
-                _ballPosition.X = _ballTexture.Width / 2;
-
-            if (_ballPosition.Y > _graphics.PreferredBackBufferHeight - _ballTexture.Height / 2)
-                _ballPosition.Y = _graphics.PreferredBackBufferHeight - _ballTexture.Height / 2;
-            else if (_ballPosition.Y < _ballTexture.Height / 2)
-                _ballPosition.Y = _ballTexture.Height / 2;
+            foreach (IGameObject gameObject in _gameObjects)
+            {
+                gameObject.UpdatePosition(gameTime);
+                gameObject.ServiceCollisions(gameTime);
+            }
 
             base.Update(gameTime);
         }
@@ -77,16 +92,8 @@ namespace Pong
 
             // TODO: Add your drawing code here
             _spriteBatch.Begin();
-            _spriteBatch.Draw(
-                _ballTexture, 
-                _ballPosition, 
-                null,
-                Color.White,
-                0f,
-                new Vector2(_ballTexture.Width / 2, _ballTexture.Height / 2),
-                Vector2.One,
-                SpriteEffects.None,
-                0f);
+            foreach (IGameObject gameObject in _gameObjects)
+                gameObject.Draw(gameTime, _spriteBatch);
             _spriteBatch.End();
 
             base.Draw(gameTime);
