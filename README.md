@@ -15,5 +15,5 @@ Need to make sure the PATHEXT includes .exe so that dotnet CLI can be executed w
 
 - 1). Install the templates with `dotnet new --install MonoGame.Templates.CSharp`.
 - 2). Create a new Visual Studios MonoGame project with `dotnet new mgdesktopgl`, within the folder that will contain the game.
-- 3). Add the MonoGame framework with `dotnet new mgdesktopgl`.
+- 3). Add the MonoGame framework with `dotnet add package MonoGame.Framework.DesktopGL --version 3.8.0.1641`.
 - 4). Open up project with Visual Studio 2022.
